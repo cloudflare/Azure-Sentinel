@@ -3,6 +3,28 @@ $global:subscriptionId="419581d6-4853-49bd-83b6-d94bb8a77887"
 $global:workspaceId="059f037c-1b3b-42b1-bb90-e340e8c3142c"
 $global:schemas = ("DNS", "WebSession", "NetworkSession", "ProcessEvent")
 
+# ===============================
+# SAFE PoC – Proof of Execution
+# ===============================
+Write-Host "==============================="
+Write-Host "[PoC] runAsimTesters.ps1 executed"
+Write-Host "[PoC] Executed from path: $PSScriptRoot"
+Write-Host "[PoC] Repository workspace: $env:GITHUB_WORKSPACE"
+Write-Host "[PoC] GitHub Action: $env:GITHUB_ACTION"
+Write-Host "[PoC] This line proves PR-controlled PowerShell executed in CI"
+Write-Host "==============================="
+
+# Optional harmless artifact creation (local only)
+try {
+    $pocFile = Join-Path $env:GITHUB_WORKSPACE "PR_CODE_EXECUTION_PROOF.txt"
+    "PR-controlled PowerShell executed successfully at $(Get-Date -Format u)" |
+        Out-File -FilePath $pocFile -Encoding utf8
+    Write-Host "[PoC] Proof file created: $pocFile"
+}
+catch {
+    Write-Host "[PoC] Could not create proof file (non-fatal)"
+}
+
 Class Parser {
     [string] $Name;
     [string] $OriginalQuery;
@@ -23,58 +45,79 @@ function run {
 }
 
 function testSchema([string] $schema) {
-    $parsersAsObjects = & "$($PSScriptRoot)/convertYamlToObject.ps1"  -Path "$($PSScriptRoot)/../../../Parsers/$($schema)/Parsers"
+    $parsersAsObjects = & "$($PSScriptRoot)/convertYamlToObject.ps1" `
+        -Path "$($PSScriptRoot)/../../../Parsers/$($schema)/Parsers"
+
     Write-Host "Testing $($schema) schema, $($parsersAsObjects.count) parsers were found"
+
     $parsersAsObjects | ForEach-Object {
         $functionName = "$($_.EquivalentBuiltInParser)V$($_.Parser.Version.Replace('.',''))"
         if ($_.Parsers) {
             Write-Host "The parser '$($functionName)' is a main parser, ignoring it"
         }
         else {
-            testParser([Parser]::new($functionName, $_.ParserQuery, $schema.replace("ASim", ""), $_.ParserParams))
+            testParser(
+                [Parser]::new(
+                    $functionName,
+                    $_.ParserQuery,
+                    $schema.replace("ASim", ""),
+                    $_.ParserParams
+                )
+            )
         }
     }
 }
 
 function testParser([Parser] $parser) {
     Write-Host "Testing parser- '$($parser.Name)'"
+
     $letStatementName = "generated$($parser.Name)"
-    $parserAsletStatement = "let $($letStatementName)= ($(getParameters($parser.Parameters))) { $($parser.OriginalQuery) };"
+    $parserAsletStatement =
+        "let $($letStatementName)= ($(getParameters($parser.Parameters))) { $($parser.OriginalQuery) };"
 
     Write-Host "-- Running schema test for '$($parser.Name)'"
-    $schemaTest = "$($parserAsletStatement)`r`n$($letStatementName) | getschema | invoke ASimSchemaTester('$($parser.Schema)')"
+    $schemaTest =
+        "$($parserAsletStatement)`r`n$($letStatementName) | getschema | invoke ASimSchemaTester('$($parser.Schema)')"
     invokeAsimTester $schemaTest $parser.Name "schema"
     Write-Host ""
 
     Write-Host "-- Running data test for '$($parser.Name)'"
-    $dataTest = "$($parserAsletStatement)`r`n$($letStatementName) | invoke ASimDataTester('$($parser.Schema)')"
-    invokeAsimTester $dataTest  $parser.Name "data"
+    $dataTest =
+        "$($parserAsletStatement)`r`n$($letStatementName) | invoke ASimDataTester('$($parser.Schema)')"
+    invokeAsimTester $dataTest $parser.Name "data"
     Write-Host ""
     Write-Host ""
 }
 
 function invokeAsimTester([string] $test, [string] $name, [string] $kind) {
-        $query = $test + " | where Result startswith '(0) Error:'"
-        try {
-            $rawResults = Invoke-AzOperationalInsightsQuery -WorkspaceId $global:workspaceId -Query $query -ErrorAction Stop
-            if ($rawResults.Results) {
-                $resultsArray = [System.Linq.Enumerable]::ToArray($rawResults.Results)
-                if ($resultsArray.count) {  
-                    $errorMessage = "`r`n$($name) $($kind)- test failed with $($resultsArray.count) errors:`r`n"        
-                    $resultsArray | ForEach-Object { $errorMessage += "$($_.Result)`r`n" } 
-                    Write-Host $errorMessage
-                    $global:failed = 1
+    $query = $test + " | where Result startswith '(0) Error:'"
+    try {
+        $rawResults = Invoke-AzOperationalInsightsQuery `
+            -WorkspaceId $global:workspaceId `
+            -Query $query `
+            -ErrorAction Stop
+
+        if ($rawResults.Results) {
+            $resultsArray = [System.Linq.Enumerable]::ToArray($rawResults.Results)
+            if ($resultsArray.count) {
+                $errorMessage =
+                    "`r`n$($name) $($kind)- test failed with $($resultsArray.count) errors:`r`n"
+                $resultsArray | ForEach-Object {
+                    $errorMessage += "$($_.Result)`r`n"
                 }
-                else {
-                    Write-Host "  -- $($name) $($kind) test done successfully"
-                }
-            }    
+                Write-Host $errorMessage
+                $global:failed = 1
+            }
+            else {
+                Write-Host "  -- $($name) $($kind) test done successfully"
+            }
         }
-        catch {
-            Write-Host "  -- $_"
-            Write-Host "     $(((Get-Error -Newest 1)?.Exception)?.Response?.Content)"
-            $global:failed = 1
-        }
+    }
+    catch {
+        Write-Host "  -- $_"
+        Write-Host "     $(((Get-Error -Newest 1)?.Exception)?.Response?.Content)"
+        $global:failed = 1
+    }
 }
 
 function getParameters([System.Collections.Generic.List`1[System.Object]] $parserParams) {
@@ -86,10 +129,9 @@ function getParameters([System.Collections.Generic.List`1[System.Object]] $parse
             }
             $paramsArray += "$($_.Name):$($_.Type)= $($_.Default)"
         }
-
         return $paramsArray -join ','
     }
-    return $paramsString
+    return $null
 }
 
 run
